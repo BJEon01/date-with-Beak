@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from torchvision.models import ViT_B_16_Weights  # ViT 모델의 가중치 가져오기
 import numpy as np
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix, f1_score
 import json
 
 # 경로 설정
@@ -89,8 +89,8 @@ def train_and_test(
     best_test_acc = 0.0  # 최고 테스트 정확도 추적
 
     # 로그 파일 초기화 및 헤더 작성
-    with open(log_file, mode="w") as file:
-        file.write("Epoch\tTrain Loss\tTrain Acc\tTest Loss\tTest Acc\n")
+    with open(log_file, mode='w') as file:
+        file.write("Epoch\tTrain Loss\tTrain Acc\tTest Loss\tTest Acc\tTest F1\n")
 
     for epoch in range(num_epochs):
         print(f"\nEpoch {epoch+1}/{num_epochs}")
@@ -141,6 +141,8 @@ def train_and_test(
         model.eval()  # 평가 모드
         test_loss = 0.0
         test_corrects = 0
+        all_test_preds = []
+        all_test_labels = []
 
         with torch.no_grad():
             for inputs, labels in tqdm(test_loader, desc="Testing"):
@@ -153,10 +155,13 @@ def train_and_test(
 
                 test_loss += loss.item() * inputs.size(0)
                 test_corrects += torch.sum(preds == labels.data)
+                all_test_preds.extend(preds.cpu().numpy())
+                all_test_labels.extend(labels.cpu().numpy())
 
         epoch_test_loss = test_loss / len(test_loader.dataset)
         epoch_test_acc = test_corrects.double() / len(test_loader.dataset)
-        print(f"Test Loss: {epoch_test_loss:.4f} | Test Acc: {epoch_test_acc:.4f}")
+        epoch_test_f1 = f1_score(all_test_labels, all_test_preds, average='macro')
+        print(f"Test Loss: {epoch_test_loss:.4f} | Test Acc: {epoch_test_acc:.4f} | Test F1: {epoch_test_f1:.4f}")
 
         # **로그 저장**
         with open(log_file, mode="a") as file:
